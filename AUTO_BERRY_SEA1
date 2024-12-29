@@ -1,0 +1,142 @@
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local StarterGui = game:GetService("StarterGui")
+local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Tốc độ lướt
+local lungeSpeed = 300
+
+-- Danh sách tọa độ
+local coordinates = {
+    Vector3.new(5290.63, 65.76, 4238.52), -- Fountain
+    Vector3.new(5388.60, 64.52, 4768.80),
+    Vector3.new(5882.10, 64.21, 4773.82),
+    Vector3.new(983.39, 15.22, 1182.77), -- pirate
+    Vector3.new(1107.19, 18.01, 1717.95),
+    Vector3.new(-715.81, 13.91, 1297.94), --- town
+    Vector3.new(-924.19, 13.41, 1341.40),
+    Vector3.new(-1044.96, 15.11, 1375.86),
+    Vector3.new(-1002.83, 15.05, 1858.52),
+    Vector3.new(-804.96, 15.09, 1902.36),
+    Vector3.new(-576.06, 14.92, 1854.03),
+    Vector3.new(-4938.57, 31.77, 4641.15), -- Fortress
+    Vector3.new(-4527.48, 30.20, 4347.10),
+    Vector3.new(-5173.52, 27.44, 4064.28),
+    Vector3.new(-5738.34, 18.77, 8445.11), -- Volcano
+    Vector3.new(-5393.70, 18.25, 8885.11),
+    Vector3.new(-1424.22, 31.94, 147.52), -- monkey
+    Vector3.new(-1381.77, 32.20, 303.71),
+    Vector3.new(-1622.71, 28.30, 396.83),
+    Vector3.new(-1760.43, 33.88, 201.18),
+    Vector3.new(-1623.83, 32.58, -106.24),
+    Vector3.new(-1467.08, 21.93, -147.05),
+    Vector3.new(-1217.43, 18.64, 121.16),
+    Vector3.new(-1220.55, 21.52, 357.33),
+    Vector3.new(-1468.12, 15.87, 520.23),
+    Vector3.new(-1762.22, 19.34, 347.29),
+    Vector3.new(-1911.30, 22.85, 80.66),
+    Vector3.new(-1820.97, 21.44, -161.32),
+    Vector3.new(-1315.81, 24.39, -394.11),
+    Vector3.new(-1200.97, 13.21, -349.51),
+    Vector3.new(-997.64, 17.75, -490.90),
+    Vector3.new(-1213.42, 11.21, -646.32),
+    Vector3.new(-1307.28, 21.47, -618.24),
+    Vector3.new(-1872.09, 16.51, -2885.07), -- Arena
+    Vector3.new(-1398.00, 17.31, -3126.05),
+    Vector3.new(-4796.25, 724.51, -2735.67), -- Sky
+    Vector3.new(-4714.06, 724.87, -2535.76),
+    Vector3.new(-4571.64, 724.86, -2406.75),
+    Vector3.new(-7743.49, 5552.23, -775.97), -- On_sky
+    Vector3.new(-7573.27, 5552.53, -432.65),
+    Vector3.new(-7442.26, 5611.19, -1699.57)
+}
+
+-- Tọa độ đặc biệt sau mỗi vòng lặp
+local teleportLocation = Vector3.new(3864.69, 5.37, -1926.21)
+
+-- Biến trạng thái
+local isPaused = false
+local currentIndex = 1
+
+-- GUI menu khi tạm ngưng
+local function createPauseMenu()
+    local screenGui = Instance.new("ScreenGui", Player.PlayerGui)
+    screenGui.Name = "PauseMenu"
+
+    local frame = Instance.new("Frame", screenGui)
+    frame.Size = UDim2.new(0, 200, 0, 100)
+    frame.Position = UDim2.new(1, -210, 1, -110)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 2
+
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, 0, 1, 0)
+    button.Text = "Tiếp tục"
+    button.Font = Enum.Font.SourceSansBold
+    button.TextSize = 20
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+
+    button.MouseButton1Click:Connect(function()
+        isPaused = false
+        screenGui:Destroy()
+    end)
+end
+
+-- Hàm kiểm tra vật thể trong bán kính 70m
+local function checkForSpheres()
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:match("^Sphere%.%d%d%d$") then
+            local distance = (RootPart.Position - obj.Position).Magnitude
+            if distance <= 70 then
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Phát hiện vật thể!",
+                    Text = "Đã tìm thấy: " .. obj.Name,
+                    Duration = 5
+                })
+                isPaused = true
+                createPauseMenu()
+                repeat RunService.Heartbeat:Wait() until not isPaused
+                break
+            end
+        end
+    end
+end
+
+-- Hàm lướt tới tọa độ
+local function performLunge(targetPosition)
+    local direction = (targetPosition - RootPart.Position).Unit
+    local distance = (targetPosition - RootPart.Position).Magnitude
+    local startTime = tick()
+
+    while (tick() - startTime < distance / lungeSpeed) do
+        RootPart.CFrame = RootPart.CFrame + direction * (lungeSpeed * RunService.Heartbeat:Wait())
+    end
+
+    RootPart.CFrame = CFrame.new(targetPosition) -- Đảm bảo nhân vật dừng đúng tọa độ
+end
+
+-- Hàm xử lý vòng lặp tọa độ
+local function startLoop()
+    while true do
+        for i, coord in ipairs(coordinates) do
+            currentIndex = i
+            performLunge(coord) -- Lướt tới tọa độ
+            wait(1)             -- Thêm khoảng thời gian chờ 5 giây để kiểm tra vật thể
+            checkForSpheres()   -- Kiểm tra vật thể sau khi đến
+        end
+
+        -- Teleport tới tọa độ đặc biệt sau mỗi vòng lặp
+        local startTime = tick()
+        while tick() - startTime < 3 do
+            RootPart.CFrame = CFrame.new(teleportLocation)
+            RunService.Heartbeat:Wait()
+        end
+    end
+end
+
+-- Bắt đầu vòng lặp
+startLoop()
